@@ -6,6 +6,7 @@ create (: Person{name:'Natalie Portman', born :1981})
 create (: Person{name:'Joel Silver', born :1952})
 match (node) return node
 match (node) delete node
+#A node may have multiple or 0 Labels.
 
 #all nodes with label Person , take it person variable and return person
 
@@ -56,6 +57,15 @@ create (person)-[:ACTED_IN {role:'Agent Smith'}]->(movie)
 match(person:Person {name:'Joel Silver'}),(movie:Movie{title:'The Matrix'})
 create (person)-[:PRODUCED]->(movie)
 
+
+#Create a full path
+
+create (p1: Person {name: "Abhishek Bachchan", 
+	born: 1976})
+	-[:HUSBAND_OF {marriedInYear: 2007}]->
+	(p2: Person {name: 
+	"Aishwarya Rai Bachchan", born: 1973})
+return p1, p2
 
 #Query Relationship
  
@@ -133,6 +143,72 @@ return m.title
 match (p1:Person{name:'Tom Hanks'})-[tom:ACTED_IN]->(m:Movie)<-[meg:ACTED_IN]-(p2:Person{name:'Meg Ryan'})
 return m.title, tom.roles as Tom, meg.roles as Meg
 
-List of all directors that Tom Hanks has worked with.
+#List of all directors that Tom Hanks has worked with.
 match (p1:Person{name:'Tom Hanks'})-[tom:ACTED_IN]->(m:Movie)<-[meg:DIRECTED]-(p2:Person)
 return p2.name
+
+#Include list of movies for each director that Tom Hanks has worked with (the ones in which Tom Hanks has worked) without tom hanks himself
+
+match (tom: Person {name: "Tom Hanks"})-[:ACTED_IN]
+	->(movie: Movie),
+	(director: Person)-[:DIRECTED]->(movie)
+where director.name <> "Tom Hanks"
+return director.name as Director, 
+	collect (movie.title) as Movies
+
+
+#List of younger actors that Tom Hanks has worked with.Include movie titles also.Include age difference also.
+match (p1: Person {name: "Tom Hanks"})-[:ACTED_IN]
+	->(m: Movie)<-[:ACTED_IN]-(p2:Person)
+where p1.born<p2.born
+return p2.name, collect(m.title)
+
+
+
+#Actors who have worked with Gene Hackman and have also directed at least one movie.
+match (p1: Person {name: "Gene Hackman"})-[:ACTED_IN]
+	->(m: Movie)<-[:ACTED_IN]-(p2:Person)
+match(p2)-[:DIRECTED]->(m1:Movie)
+return p2.name
+
+
+#Actors who have not directed any movie.
+match (p1:Person)-[:ACTED_IN]
+	->(m:Movie)
+where NOT (p1)-[:DIRECTED]->(:Movie)
+return p1.name
+
+
+#Actors who have worked with Tom Hanks, but not when Meg Ryan also acted in the same movie.
+#Optional is kind of left join of match results
+match (p1:Person {name:'Tom Hanks'})-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(p2:Person)
+OPTIONAL match (p3:Person {name:'Meg Ryan'})
+where NOT (p3)-[:ACTED_IN]->(m)
+return p2.name
+
+#Find top 5 actors who acted in most number of movies
+match (p1:Person)-[:ACTED_IN]->(m:Movie)
+return p1.name, count(*) as Count order by Count desc limit 5
+
+
+match (p: Person {name: "Keanu Reeves"})
+match (p)-[:REVIEWED]->(m: Movie)
+return p.name, m.title
+
+match (p: Person {name: "Keanu Reeves"})
+optional match (p)-[:REVIEWED]->(m: Movie)
+return p.name, m.title
+
+
+
+#Other available keywords : AND, OR, XOR, NOT, contains, =~ (this is for regex), starts with , ends with , IN
+
+
+#Updating node and lables
+match (from: FictionalPerson {name: "Dr Jakyll"}),
+	(to: FictionalPerson {name: "Mr Hyde"})
+	set to = from
+	return from, to
+
+
+
