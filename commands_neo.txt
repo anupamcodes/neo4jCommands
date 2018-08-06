@@ -1,0 +1,138 @@
+
+#keanu is temp variable, Person is label for node
+create (keanu: Person{name:'Keanu Reaves', born :1964})
+create (hugo: Person{name:'Hugo Weaving', born :1964})
+create (: Person{name:'Natalie Portman', born :1981})
+create (: Person{name:'Joel Silver', born :1952})
+match (node) return node
+match (node) delete node
+
+#all nodes with label Person , take it person variable and return person
+
+match(person:Person) return person
+
+#all nodes with label Person , take it person variable and return count
+
+match(p:Person) return count(p)
+
+
+#all nodes with label Person and name = keanu Reaves, take it person variable and return person
+
+match(p:Person) 
+	where p.name = 'Keanu Reaves'
+	return p
+
+#OR - we can write 
+
+
+match(p:Person {name : 'Keanu Reaves'})
+return p
+
+create(:Movie{title:'The Matrix', released:1999, tagline:'Welcome to the Real World'})
+create(:Movie{title:'V for vendetta', released:2006, tagline:'Freedom! Forever!'})
+match (movie:Movie) return movie
+match (node) return node
+
+
+#Create relationship
+
+#where person = keanu Reaves and movie title = The Matrix
+
+match(person:Person {name:'Keanu Reaves'}),(movie:Movie{title:'The Matrix'})
+create (person)-[:ACTED_IN {role:'Neo'}]->(movie)
+#in above query ACTED_IN is label and reole:'Neo' is  attribute of relationship
+
+----
+#where person = Hugo Weaving and movie title = The Matrix
+----
+
+match(person:Person {name:'Hugo Weaving'}),(movie:Movie{title:'The Matrix'})
+create (person)-[:ACTED_IN {role:'Agent Smith'}]->(movie)
+
+----
+#similar to above
+----
+
+match(person:Person {name:'Joel Silver'}),(movie:Movie{title:'The Matrix'})
+create (person)-[:PRODUCED]->(movie)
+
+
+#Query Relationship
+ 
+#show person , movie and type of relationship(label) between person and movie, person , movie and relationships is varibale name below query and they can be anything
+match(person:Person)-[relationship]->(movie:Movie)
+return person, type(relationship), movie
+
+#show person , movie and relationship(attributes) between person and movie
+match(person:Person)-[relationship]->(movie:Movie)
+return person, relationship, movie
+
+#show person , movie and relationship(attributes) between person and movie
+match(person:Person)-[relationship]->(movie:Movie)
+return *
+
+match (person:Person)-[:PRODUCED]->(movie:Movie)
+return person.name, movie.title
+
+
+
+#match all nodes who has a relationship with any node, node and relationship is variable in below query
+match(node)-[relationship]->()
+delete relationship
+
+# match all node and all relationships for node
+match(node)
+optional match(node)-[relationship]->()
+delete node, relationship
+
+#OR below query will find all nodes and detach theiw relationships and delete nodes
+match (n) detach delete n
+
+
+#Query Data
+#All person who acted in a movie and all director of that movie
+
+match(p1:Person)-[:ACTED_IN]->(m:Movie),
+     (p2:Person)-[:DIRECTED]->(m)
+return p1.name as Actor, p2.name as Director
+
+#OR
+#here arrows are used bi directional left to right for Acted in relationship and right to left for Directed relationship
+#order by actor, director used same as sql
+
+match(p1:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(p2:Person)
+return p1.name as Actor, p2.name as Director
+order by 1,2
+
+# Group by for count of select commands
+# actor director is grouped and collect and count is runnning on that group, count give count of actor director worked together and collect gives title of all such movies
+# also it takes only first 10 rows
+
+match(p1:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(p2:Person)
+return p1.name as Actor, p2.name as Director,
+count(*) as Count,
+collect(m.title) as titles
+order by Count desc
+limit 10
+
+
+#Get list of people who have directed a movie that they have also acted in.
+match (p1:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(p1)
+return p1.name, m.title
+
+#For each actor, the count and the list of movies they acted in; sorted in descending order of count, and actor name. Limit to top 10.
+match (p1:Person)-[:ACTED_IN]->(m:Movie)
+return p1.name, m.title, count(*) as Count
+order by Count desc, p1.name desc limit 10
+
+#Movies where Tom Hanks and Meg Ryan have worked together.
+match (p1:Person{name:'Tom Hanks'})-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(p2:Person{name:'Meg Ryan'})
+return m.title
+
+# And the roles that the two played in these movies?
+match (p1:Person{name:'Tom Hanks'})-[tom:ACTED_IN]->(m:Movie)<-[meg:ACTED_IN]-(p2:Person{name:'Meg Ryan'})
+return m.title, tom.roles as Tom, meg.roles as Meg
+
+List of all directors that Tom Hanks has worked with.
+match (p1:Person{name:'Tom Hanks'})-[tom:ACTED_IN]->(m:Movie)<-[meg:DIRECTED]-(p2:Person)
+return p2.name
