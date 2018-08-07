@@ -1,0 +1,165 @@
+#Establish the relationships that “The Matrix Reloaded” is a sequel to “The Matrix”, and “The Matrix Revolutions” is a sequel to “The Matrix Reloaded”.
+
+
+match(m1:Movie{title:'The Matrix'}),
+(m2:Movie{title:'The Matrix Reloaded'})
+create (m1)-[:ITS_SEQUEL_IS]->(m2)
+
+match(m1:Movie{title:'The Matrix Reloaded'}),
+(m2:Movie{title:'The Matrix Revolutions'})
+create (m1)-[:ITS_SEQUEL_IS]->(m2)
+
+
+#Pipe operator in relationship qyery
+[:ACTED_IN | :DIRECTED] - this means acted in or directed
+
+#If you omit the direction for a relationship in a query, 
+#Cypher tries to resolve it in both directions.
+
+match (m: Movie)-[:ACTED_IN]-(p: Person)
+return m.title, p.name
+
+
+#Creating relationships based on existing relationships
+#Actors and directors who work together in a movie know each other.
+#Unique keyword in below query will give unique person to person relationship.
+
+match(p1:Person)-[:ACTED_IN | DIRECTED]->()<-[:ACTED_IN | DIRECTED]-(p2:Person)
+where not p1 = p2
+create unique (p1)-[:KNOWS]->(p2)
+
+#Number of Knows relationship between keanu and Hugo, one in each direction
+match(p1:Person{name:'Keanu Reeves'})-[k:KNOWS]-(p2:Person{name:'Hugo Weaving'})
+return count(p1)
+
+
+#Maximum number of peope Tom hanks knows
+match(p1:Person{name:'Tom Hanks'})-[k:KNOWS]->(p2:Person)
+return count(p1)
+
+#query to get person who knows self
+match(p1:Person)-[k:KNOWS]->(p1)
+return p1
+
+#Keanu Reeves' friend of friend
+match(p1:Person{name:'Keanu Reeves'})-[:KNOWS]->(p2:Person)-[:KNOWS]->(p3:Person)
+
+#above same result using variable length relationship
+match(p1:Person{name:'Keanu Reeves'})-[:KNOWS*2]->(fof)
+return distinct fof.name
+return count(p3)
+
+#Find 3rd and 4th level contact without 2nd level contact and person himself
+match(p1:Person{name:'Keanu Reeves'})-[:KNOWS*3..4]->(fof)
+where not (p1)-[:KNOWS*1..2]->(fof) and fof<> p1
+return fof
+
+#shortest Path from one to another
+match(p1:Person{name:'Keanu Reeves'}),(p2:Person{name:'John Hurt'}),
+path=shortestPath((p1)-[:KNOWS*]->(p2))
+return length(path), nodes(path)
+
+#to get name of each node in the path
+match(p1:Person{name:'Keanu Reeves'}),(p2:Person{name:'John Hurt'}),
+path=shortestPath((p1)-[:KNOWS*]->(p2))
+return extract(n in  nodes(path)|n.name)
+
+#Piping using WITH Clause , where instead of return we mark WITH and after that we can use this value in second query with this query
+match(p1:Person{name:'Keanu Reeves'}),(p2:Person{name:'John Hurt'}),
+path=shortestPath((p1)-[:KNOWS*]->(p2))
+WITH extract(n in  nodes(path)|n.name) as Result
+unwind (Result) as Result2
+return  Result2
+
+#To add new properties
+match (p: Person {name: "Keanu Reeves"})
+set p.birthPlace = "Beirut"
+
+#To remove any properties
+match (p: Person {name: "Keanu Reeves"})
+remove p.birthPlace
+
+
+#To know if a node does not exist
+
+match (p: Person) where not exists (p.born)
+return p
+
+Alternatively
+
+match (p: Person) where p.born is null
+return p
+
+#To Alter and edit propeties using value and next query uses json for same, which will overide existing value if its there in set command's json
+match (p: Person {name: "Aamir Khan"})
+set p.born=p.bern, p.bern=null
+return p
+
+match (p: Person {name: "Aamir Khan"})
+set p+={name:"Aamir Khan", born:1965}
+return p
+
+
+#Create a node with label “Movie” for the movie “Titanic” without any properties. Then separately set its properties. It was released in 1997, with the tagline “Collide with Destiny”.
+create (m:Movie)
+match (m:Movie) where m.title is null 
+set m+={title: "Titanic",
+tagline : "Collide with Destiny",
+released : 1997}
+
+
+#Set Properties for all nodes in a path 
+match p = (begin:Movie{title : "The Matrix"})-[*]->(end:Movie{title:"The Matrix Revolutions"})
+foreach(n in nodes(p) |
+set n.series="The Matrix Series")
+
+
+#Examples of nested WITH clause 
+
+
+match(p1:Person{name:'Keanu Reeves'}),(p2:Person{name:'John Hurt'}),
+path=shortestPath((p1)-[:KNOWS*]->(p2))
+WITH extract(n in  nodes(path)|n.name) as Result
+unwind (Result) as Result2
+with  Result2
+match (p3:Person{name:Result2})-[:KNOWS]->(p4:Person)
+return collect(p4.name), Result2
+
+
+match(p1:Person{name:'Keanu Reeves'}),(p2:Person{name:'John Hurt'}),
+path=shortestPath((p1)-[:KNOWS*]->(p2))
+WITH extract(n in  nodes(path)|n) as Result
+unwind (Result) as Result2
+with  Result2
+match (Result2)-[:KNOWS]->(p4:Person)
+return collect(p4.name), Result2.name
+
+
+
+match(p1:Person{name:'Keanu Reeves'}),(p2:Person{name:'John Hurt'}),
+path=shortestPath((p1)-[:KNOWS*]->(p2))
+WITH extract(n in  nodes(path)|n) as Result
+unwind (Result) as Result2
+with  Result2
+match (Result2)-[:KNOWS]->(p4:Person)
+with collect(p4) as names, Result2.name as R2
+unwind (names) as namesAll
+return namesAll.name, namesAll.born
+
+---------------------------------------
+
+
+
+match (keanu: Person {name: "Keanu Reeves"})
+		-[:ACTED_IN]->()<-[:ACTED_IN]-(coactor: Person),
+	(coactor)-[:ACTED_IN]->()<-[:ACTED_IN]-
+		(coc: Person)
+where not ((keanu)-[:ACTED_IN]->()<-[:ACTED_IN]-(coc))
+	and coc <> keanu
+return distinct coc.name, count (coc) as count
+order by count desc
+
+
+
+
+
